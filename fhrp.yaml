@@ -1,0 +1,16 @@
+---
+- name: Deploying FHRP
+  connection: network_cli
+  gather_facts: False
+  hosts: network
+  tasks:
+    - name: Save generated configuration
+      template:
+        src: templates/fhrp.j2
+        dest: templates/{{ inventory_hostname}}.conf
+
+    - name: Configure HSRP/VRRP
+      ios_config:
+        src: templates/fhrp.j2
+
+...

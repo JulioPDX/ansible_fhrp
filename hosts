@@ -1,0 +1,10 @@
+locahost
+
+[network]
+DS1 ansible_host=192.168.10.111
+DS2 ansible_host=192.168.10.104
+
+[network:vars]
+ansible_user=cisco
+ansible_ssh_pass=cisco
+ansible_network_os=ios
