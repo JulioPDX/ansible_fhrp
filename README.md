@@ -12,7 +12,7 @@ I was recently going through the IP services chapter of the CCNP ENCOR book and 
 2. Access to Cisco CML, GNS3, EVE-NG or some other technology for labbing
 3. Validate Ansible control machine has access to nodes
 
-I have a few basic configurations done in this lab. For example, my Ansible control machine has access to the two nodes acting as distribution switches. I have enabled a tracking command for our lab (DS1 --> IOSv RTR). This track is just checking the Up/Down status of the interface connected to our upstream router. `track 1 interface GigabitEthernet0/2 line-protocol`. Trunk interfaces between DS1, DS2, and Access switch are configured as well.
+I have a few basic configurations done in this lab. For example, my Ansible control machine has access to the two nodes acting as distribution switches. I have enabled a tracking command for our lab (DS1 --> vIOS RTR). This track is just checking the Up/Down status of the interface connected to our upstream router. `track 1 interface GigabitEthernet0/2 line-protocol`. Trunk interfaces between DS1, DS2, and Access switch are configured as well.
 
 ## Project Structure
 
