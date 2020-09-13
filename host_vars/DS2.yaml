@@ -1,17 +1,20 @@
 vlans:
 
-  - name: 10
+  - name: Wheres
+    id: 10
     l3: True
     ip_address: 10.0.10.3/24
     hsrp: True
     standby_ip: 10.0.10.1
     priority: 99
 
-  - name: 20
+  - name: Wally
+    id: 20
     l3: True
     ip_address: 10.0.20.3/24
     vrrp: True
     standby_ip: 10.0.20.1
     priority: 99
 
-  - name: 30
+  - name: IDK
+    id: 30

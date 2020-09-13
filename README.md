@@ -4,17 +4,15 @@
 
 ## Purpose
 
-I was recently going through the IP services chapter of the CCNP ENCOR book and it really sparked my interested in automating HSRP and VRRP configurations. Ive taken the previous CCNP exams and I saw this as a way to stay fresh and keep on labbing as they say.
-
-In this exercise I will look into automating HSRP (Cisco) and VRRP. These two protocols can be used to add redundancy to first hop (gateway) addresses. From a protocol standpoint and configuration wise they are very similar. Something to call out is that VRRP has preemption enabled by default and some terms are different. Active/Standby for HSRP and Master/Backup for VRRP.
+I was recently going through the IP services chapter of the CCNP ENCOR book and I wanted to take a shot at automating HSRP/VRRP configurations. These two protocols can be used to add redundancy to first hop addresses. From a protocol standpoint and configuration wise they are very similar. Something to call out is that VRRP has preemption enabled by default and some terms are different. Active/Standby for HSRP and Master/Backup for VRRP.
 
 ## Prerequisites
 
 1. Ansible ≤ 2.9
-2. Lab to automate the things
+2. Access to Cisco CML, GNS3, EVE-NG or some other technology for labbing
 3. Validate Ansible control machine has access to nodes
 
-I have a few basic configurations done in this lab. For example, my Ansible control machine has access to the two nodes acting as distribution switches. I have enabled a tracking command for our lab (DS1 --> IOSv RTR). This track is just checking the Up/Down status of the interface connected to our upstream router. `track 1 interface GigabitEthernet0/2 line-protocol`
+I have a few basic configurations done in this lab. For example, my Ansible control machine has access to the two nodes acting as distribution switches. I have enabled a tracking command for our lab (DS1 --> IOSv RTR). This track is just checking the Up/Down status of the interface connected to our upstream router. `track 1 interface GigabitEthernet0/2 line-protocol`. Trunk interfaces between DS1, DS2, and Access switch are configured as well.
 
 ## Project Structure
 
@@ -27,8 +25,12 @@ ansible_fhrp/
 ├── host_vars
 │   ├── DS1.yaml
 │   └── DS2.yaml
+├── images
+│   └── topo.PNG
 ├── README.md
 └── templates
+    ├── DS1.conf
+    ├── DS2.conf
     └── fhrp.j2
 ```
 
@@ -62,7 +64,7 @@ stdout_callback = yaml
 pipelining = True
 ```
 
-### `fhrp.yaml
+### `fhrp.yaml`
 
 ```yaml
 ---
@@ -87,14 +89,15 @@ The actual playbook file is pretty small. It connects to device, saves config to
 
 ## Design Considerations
 
-For this practice run Im using a few caveats. DS1 will be our main layer 3 switch for the SVIs. Whether its VRRP or HSRP. DS1 will be the active device responding as the gateway. The tracking interface mentioned at the start of this file is only configured on DS1. If DS1s upstream connection has issues, its priority will decrement and DS2 will become acive. Preemption will be enabled on all SVIs. When DS1 recovers it will take over as active again.  
+For this practice run I'm using a few caveats. DS1 will be our main layer 3 switch for the SVIs. Whether its VRRP or HSRP. DS1 will be the active device responding as the gateway. The tracking interface mentioned at the start of this file is only configured on DS1. If the DS1 connection to our router device has issues, its priority will decrement and DS2 will become active. Preemption will be enabled on all SVIs. When DS1 recovers it will take over as active again.  
 
 ### `host_vars/DS1.yaml`
 
 ```yaml
 vlans:
 
-  - name: 10
+  - name: Wheres
+    id: 10
     l3: True
     ip_address: 10.0.10.2/24
     hsrp: True
@@ -104,7 +107,8 @@ vlans:
       number: 1 
       decrement: 50
 
-  - name: 20
+  - name: Wally
+    id: 20
     l3: True
     ip_address: 10.0.20.2/24
     vrrp: True
@@ -114,41 +118,66 @@ vlans:
       number: 1 
       decrement: 50
 
-  - name: 30
-
+  - name: IDK
+    id: 30
 ```
 
-Here we have a few VLANs defined. I tried to keep the variables short and sweet. If L3 is defined do this or define that. Notice that `VLAN 30` has pretty much nothing defined. This will make sense in the jinja template and configuration file that is created. Long story short it will just be a simple layer 2 VLAN added to the device. Check out `DS2` variables below and notice there is no tracking defined and priority is set to 99 on all vlans (lower than `DS1` at 101). Oh one more bonus, in VRRP, preemption is enabled by default so we can omit that from the jinja template logic.
+Here we have a few VLANs defined. I tried to keep the variables short and sweet. Notice that VLAN 30 has pretty much nothing defined. This will make sense in the jinja template and configuration file that is created. Long story short it will just be a simple layer 2 VLAN added to the device. Check out DS2 variables below and notice there is no tracking defined and priority is set to 99 on all vlans (lower than DS1 at 101). Oh one more bonus, in VRRP, preemption is enabled by default so we can omit that from the jinja template logic.
+
+### `host_vars/DS2.yaml`
+
+```yaml
+vlans:
+
+  - name: Wheres
+    id: 10
+    l3: True
+    ip_address: 10.0.10.3/24
+    hsrp: True
+    standby_ip: 10.0.10.1
+    priority: 99
+
+  - name: Wally
+    id: 20
+    l3: True
+    ip_address: 10.0.20.3/24
+    vrrp: True
+    standby_ip: 10.0.20.1
+    priority: 99
+
+  - name: IDK
+    id: 30
+```
 
 ### `templates/fhrp.j2`
 
 ```jinja
 {% for vlan in vlans %}
-vlan {{ vlan.name }}
+vlan {{ vlan.id }}
+  name {{ vlan.name }}
 {% if vlan.l3 is defined %}
-interface vlan{{ vlan.name }}
+interface vlan{{ vlan.id }}
   ip address {{ vlan.ip_address | ipaddr('address') }} {{ vlan.ip_address | ipaddr('netmask') }}
   no shutdown
 {% if vlan.hsrp is defined %}
-  standby {{ vlan.name }} ip {{ vlan.standby_ip }}
-  standby {{ vlan.name }} priority {{ vlan.priority }}
+  standby {{ vlan.id }} ip {{ vlan.standby_ip }}
+  standby {{ vlan.id }} priority {{ vlan.priority }}
   standby 10 preempt
 {% if vlan.track is defined %}
-  standby {{ vlan.name }} track {{ vlan.track.number }} decrement {{ vlan.track.decrement }}
+  standby {{ vlan.id }} track {{ vlan.track.number }} decrement {{ vlan.track.decrement }}
 {% else %}
 {% endif %}
 {% endif %}
 {% if vlan.vrrp is defined %}
-  vrrp {{ vlan.name }} ip {{ vlan.standby_ip }}
-  vrrp {{ vlan.name }} priority {{ vlan.priority }}
+  vrrp {{ vlan.id }} ip {{ vlan.standby_ip }}
+  vrrp {{ vlan.id }} priority {{ vlan.priority }}
 {% if vlan.track is defined %}
-  vrrp {{ vlan.name }} track {{ vlan.track.number }} decrement {{ vlan.track.decrement }}
+  vrrp {{ vlan.id }} track {{ vlan.track.number }} decrement {{ vlan.track.decrement }}
 {% else %}
 {% endif %}
 {% endif %}
 {% endif %}
 {% endfor %}
-
 ```
 
 If you are new to jinja I can see how this may look a bit crazy. We are using a loop at the start to go over our list of VLANs defined in our `host_vars` file for each host. After that we are using a bunch of `if` logic to either do something with the data or just skip over it. For example if I have layer 3 information defined, make an SVI. If I dont then just leave it as is and just make a standard VLAN with no SVI. I will include the output of the file that is generated in the templates folder.
@@ -156,7 +185,7 @@ If you are new to jinja I can see how this may look a bit crazy. We are using a 
 ### Pre Checks
 
 ```
-DS1#sh vlan brief 
+DS1#show vlan brief 
 
 VLAN Name                             Status    Ports
 ---- -------------------------------- --------- -------------------------------
@@ -170,7 +199,7 @@ DS1#
 ```
 
 ```
-DS2#sh vlan brief 
+DS2#show vlan brief 
 
 VLAN Name                             Status    Ports
 ---- -------------------------------- --------- -------------------------------
@@ -184,7 +213,7 @@ DS2#
 ```
 
 ```
-DS1#sh ip int b | ex unass
+DS1#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol   
 GigabitEthernet0/3     192.168.10.101  YES DHCP   up                    up 
 
@@ -192,7 +221,7 @@ DS1#
 ```
 
 ```
-DS2#sh ip int b | ex unass
+DS2#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol    
 GigabitEthernet0/3     192.168.10.102  YES DHCP   up                    up   
 
@@ -226,15 +255,15 @@ Exciting isnt it? Lets check the switches.
 ### Post Check
 
 ```
-DS1#sh vlan brief 
+DS1#show vlan brief 
 
 VLAN Name                             Status    Ports
 ---- -------------------------------- --------- -------------------------------
 1    default                          active    Gi0/2, Gi1/0, Gi1/1, Gi1/2
                                                 Gi1/3
-10   VLAN0010                         active    
-20   VLAN0020                         active    
-30   VLAN0030                         active    
+10   Wheres                           active    
+20   Wally                            active    
+30   IDK                              active    
 1002 fddi-default                     act/unsup 
 1003 token-ring-default               act/unsup 
 1004 fddinet-default                  act/unsup 
@@ -243,15 +272,15 @@ DS1#
 ```
 
 ```
-DS2#sh vlan brief 
+DS2#show vlan brief 
 
 VLAN Name                             Status    Ports
 ---- -------------------------------- --------- -------------------------------
 1    default                          active    Gi0/2, Gi1/0, Gi1/1, Gi1/2
                                                 Gi1/3
-10   VLAN0010                         active    
-20   VLAN0020                         active    
-30   VLAN0030                         active    
+10   Wheres                           active    
+20   Wally                            active    
+30   IDK                              active    
 1002 fddi-default                     act/unsup 
 1003 token-ring-default               act/unsup 
 1004 fddinet-default                  act/unsup 
@@ -262,7 +291,7 @@ DS2#
 Looks like all three VLANs are present!
 
 ```
-DS1#sh ip int b | ex unass
+DS1#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol
 GigabitEthernet0/3     192.168.10.101  YES DHCP   up                    up      
 Vlan10                 10.0.10.2       YES manual up                    up      
@@ -272,7 +301,7 @@ DS1#
 ```
 
 ```
-DS2#sh ip int b | ex unass
+DS2#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol
 GigabitEthernet0/3     192.168.10.102  YES DHCP   up                    up      
 Vlan10                 10.0.10.3       YES manual up                    up      
@@ -429,4 +458,4 @@ DS1(config-if)#
 DS1(config-if)#
 ```
 
-Thank you all for reading this far. Happy labbing/automating. Stay safe out there, 2020 is a tough one!
+Thank you all for reading this far. In the end you could avoid all of this and go with a routed access layer ¯\(°_o)/¯. Happy labbing/automating. Stay safe out there, 2020 is a tough one!

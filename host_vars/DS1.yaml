@@ -1,6 +1,7 @@
 vlans:
 
-  - name: 10
+  - name: Wheres
+    id: 10
     l3: True
     ip_address: 10.0.10.2/24
     hsrp: True
@@ -10,7 +11,8 @@ vlans:
       number: 1 
       decrement: 50
 
-  - name: 20
+  - name: Wally
+    id: 20
     l3: True
     ip_address: 10.0.20.2/24
     vrrp: True
@@ -20,4 +22,5 @@ vlans:
       number: 1 
       decrement: 50
 
-  - name: 30
+  - name: IDK
+    id: 30
