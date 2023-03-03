@@ -1,6 +1,6 @@
 # Automating HSRP/VRRP with Ansible
 
-![](./images/topo.PNG)
+![Topo](./images/topo.PNG)
 
 ## Purpose
 
@@ -38,7 +38,7 @@ As you can see I didnt go all in with roles on this one. Good example of using a
 
 ### `hosts`
 
-```
+```text
 locahost
 
 [network]
@@ -53,7 +53,7 @@ ansible_network_os=ios
 
 ### `ansible.cfg`
 
-```
+```text
 [defaults]
 host_key_checking=False
 inventory=./hosts
@@ -184,7 +184,7 @@ If you are new to jinja I can see how this may look a bit crazy. We are using a 
 
 ### Pre Checks
 
-```
+```text
 DS1#show vlan brief 
 
 VLAN Name                             Status    Ports
@@ -198,7 +198,7 @@ VLAN Name                             Status    Ports
 DS1#
 ```
 
-```
+```text
 DS2#show vlan brief 
 
 VLAN Name                             Status    Ports
@@ -212,7 +212,7 @@ VLAN Name                             Status    Ports
 DS2#
 ```
 
-```
+```text
 DS1#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol   
 GigabitEthernet0/3     192.168.10.101  YES DHCP   up                    up 
@@ -220,7 +220,7 @@ GigabitEthernet0/3     192.168.10.101  YES DHCP   up                    up
 DS1#
 ```
 
-```
+```text
 DS2#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol    
 GigabitEthernet0/3     192.168.10.102  YES DHCP   up                    up   
@@ -228,9 +228,9 @@ GigabitEthernet0/3     192.168.10.102  YES DHCP   up                    up
 DS2#
 ```
 
-### Okay lets run the playbook :) 
+### Okay lets run the playbook
 
-```
+```text
 juliopdx@librenms:~/repos/ansible_fhrp$ ansible-playbook fhrp.yaml 
 
 PLAY [Deploying FHRP] **************************************************************************************************************************************************
@@ -254,7 +254,7 @@ Exciting isnt it? Lets check the switches.
 
 ### Post Check
 
-```
+```text
 DS1#show vlan brief 
 
 VLAN Name                             Status    Ports
@@ -271,7 +271,7 @@ VLAN Name                             Status    Ports
 DS1#
 ```
 
-```
+```text
 DS2#show vlan brief 
 
 VLAN Name                             Status    Ports
@@ -290,7 +290,7 @@ DS2#
 
 Looks like all three VLANs are present!
 
-```
+```text
 DS1#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol
 GigabitEthernet0/3     192.168.10.101  YES DHCP   up                    up      
@@ -300,7 +300,7 @@ Vlan20                 10.0.20.2       YES manual up                    up
 DS1#
 ```
 
-```
+```text
 DS2#show ip interface brief | exclude unass
 Interface              IP-Address      OK? Method Status                Protocol
 GigabitEthernet0/3     192.168.10.102  YES DHCP   up                    up      
@@ -312,7 +312,7 @@ DS2#
 
 Looks like all the SVIs are there and notice, no SVI for VLAN 30. Lets now check HSRP and VRRP on both switches. I forgot to mention, we are using HSRP for VLAN 10 and VRRP for VLAN 20. Lets check HSRP on both switches first.
 
-```
+```text
 DS1#show standby  
 Vlan10 - Group 10
   State is Active
@@ -331,7 +331,7 @@ Vlan10 - Group 10
 DS1#
 ```
 
-```
+```text
 DS2#show standby 
 Vlan10 - Group 10
   State is Standby
@@ -351,7 +351,7 @@ DS2#
 
 DS1 is active for VLAN 10 and tracking is enabled. Priority for DS1 is 101 and 99 for DS2. Lets move to VRRP on both switches.
 
-```
+```text
 DS1#show vrrp 
 Vlan20 - Group 20 
   State is Master  
@@ -368,7 +368,7 @@ Vlan20 - Group 20
 DS1#
 ```
 
-```
+```text
 DS2#show vrrp
 Vlan20 - Group 20 
   State is Backup  
@@ -386,7 +386,7 @@ DS2#
 
 Same idea as before with tracking and priorities. Lets take down interface `Gi0/2` on DS1 and we should see DS2 take over in both cases. 
 
-```
+```text
 DS1#conf t
 Enter configuration commands, one per line.  End with CNTL/Z.
 DS1(config)#int g0/2
@@ -408,7 +408,7 @@ DS1(config-if)#
 
 DS2 should now take over for both SVIs.
 
-```
+```text
 DS2#
 *Sep 13 06:26:30.086: %HSRP-5-STATECHANGE: Vlan10 Grp 10 state Standby -> Active
 DS2#
@@ -442,9 +442,9 @@ Vlan20 - Group 20
 DS2#
 ```
 
-Ill save you all from looking at too much more CLI output but the following is "recovering" from our outage scenario.
+I'll save you all from looking at too much more CLI output but the following is "recovering" from our outage scenario.
 
-```
+```text
 DS1(config-if)#no shut
 DS1(config-if)#
 *Sep 13 06:30:33.043: %TRACK-6-STATE: 1 interface Gi0/2 line-protocol Down -> Up
@@ -458,4 +458,4 @@ DS1(config-if)#
 DS1(config-if)#
 ```
 
-Thank you all for reading this far. In the end you could avoid all of this and go with a routed access layer ¯\(°_o)/¯. Happy labbing/automating. Stay safe out there, 2020 is a tough one!
+Thank you all for reading this far. In the end you could avoid all of this and go with a routed access layer `¯\(°_o)/¯`. Happy labbing/automating. Stay safe out there, 2020 is a tough one!
